@@ -11,12 +11,19 @@ Date: 2024-07-25
 from logger import get_logger
 from datetime import datetime
 from time import sleep
-from openai import OpenAI
+import edge_tts
+import asyncio
+from pydub import AudioSegment
+from pydub.playback import play
+from playsound import playsound
 import csv
 import os
-from elevenlabs import Voice, VoiceSettings, generate, play
-import speech_recognition as sr
 from textwrap import dedent
+import speech_recognition as sr
+from langchain_core.runnables.base import RunnableSequence
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
 from terminal_colors import GREY, RESET, CLEAR
 
 from config_loader import config
@@ -43,31 +50,6 @@ def format_string(prompt: str) -> str:
         prompt = prompt.replace('  ', ' ')
 
     return prompt.strip()
-
-
-def generate_llm_answer(messages: str, model: str = config['openai_model']) -> tuple:
-    '''
-    Return chat completion answer
-
-    Args:
-        messages (str): prompt to send to chatGPT
-        model (str, optional): model to use.
-
-    Return:
-        (tuple): answer (str), tokens (int, int)
-    '''
-
-    # create client instance
-    client = OpenAI(api_key=config['openai_api_key'])
-
-    # send message to chatGPT
-    completion = client.chat.completions.create(model=model, messages=messages)
-
-    # extract and return answer and tokens count
-    answer = completion.choices[0].message.content
-    tokens = completion.usage.prompt_tokens, completion.usage.completion_tokens
-
-    return answer, tokens
 
 
 def load_from_csv(csvfile: str) -> dict:
@@ -136,32 +118,59 @@ def write_to_csv(csvfile: str, *strings: list, timestamp: bool = False) -> bool:
     return True
 
 
+def build_chain() -> RunnableSequence:
+    '''Define the langchain chain to chat with the avatar.
+
+    Return:
+        (RunnableSequence): chain instance
+    '''
+
+    # create openai model and link it to tools
+    llm_gpt4 = ChatOpenAI(model=config['openai_model'], api_key=config['openai_api_key'])
+
+    # create prompt
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a helpful assistant answering questions."),
+            ("system", "Keep your answers short and straight to the point. Never use more than 2 or 3 sentences."),
+            ("ai", "Hello! I am your helpful assistant. How can I help you today?"),
+            ("human", "Give me a good French comedy."),
+            ("ai", "Sure! How about 'Amélie'?"),
+            ("human", "Do you know the height of the Eiffel Tower?"),
+            ("ai", "Sure, the Eiffel Tower is 324 meters tall."),
+            ("placeholder", "{chat_history}"),
+            ("human", "{input}"),
+        ]
+    )
+
+    # create string output parser
+    str_output_parser = StrOutputParser()
+
+    # create chain
+    chain = prompt | llm_gpt4 | str_output_parser
+
+    return chain
+
+
 def generate_tts(text: str) -> None:
     '''
-    Generates audio from text using elevenlabs and plays it
+    Generates audio from text using edge_tts API and plays it
 
     Args:
         text (str): text to generate audio from
     '''
 
-    # get api-key and model from settings
-    api_key = config['elabs_api_key']
-    model = config['elabs_model']
+    voice = config['edgetts_voice']
+    audio_file = config['temp_audio_file']
 
-    # set-up elevenlabs voice settings
-    voice = Voice(
-        voice_id=config['elabs_voice_id'],
-        settings=VoiceSettings(
-            stability=config['elabs_stability'],
-            similarity_boost=config['elabs_similarity_boost'],
-            style=config['elabs_style'],
-            use_speaker_boost=config['elabs_use_speaker_boost']
-            )
-    )
+    async def text_to_audio() -> None:
+        """ Generate speech from text and save it to a file """
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(audio_file)
 
     # generate audio data
     try:
-        generation = generate(text=text, api_key=api_key, voice=voice, model=model)
+        asyncio.run(text_to_audio())
 
     except Exception as e:
         LOG.error(f"Error generating and playing audio: {e}. Voice deactivated.")
@@ -169,14 +178,18 @@ def generate_tts(text: str) -> None:
         print(f'{CLEAR}{text}')
         return
 
-    # print answer once generated
+    # print answer
     print(f'{CLEAR}{text}')
 
-    # play audio file
-    play(generation)
+    # play and delete audio file
+    audio = AudioSegment.from_file(audio_file)
+    play(audio)
+
+    # deleve temporary audio file
+    os.remove(audio_file)
 
 
-def record_voice(exit_chat) -> str | None:
+def record_audio_message(exit_chat) -> str | None:
     '''Record voice and return text transcription.
 
     Args:
@@ -192,7 +205,7 @@ def record_voice(exit_chat) -> str | None:
     '''
 
     text = ''
-    language = config['language']
+    language = config['chat_language']
     recognizer = sr.Recognizer()
     microphone = sr.Microphone()
 
@@ -200,12 +213,12 @@ def record_voice(exit_chat) -> str | None:
 
         with microphone as source:
 
-            print(f"{CLEAR}{GREY}(listen {language['value']}){RESET}", end=' ', flush=True)
+            print(f"{CLEAR}{GREY}(listening){RESET}", end=' ', flush=True)
             timeout = config['speech_timeout']
             audio = recognizer.listen(source, timeout=timeout)
 
-            print(f"{CLEAR}{GREY}(transcribe {language['value']}){RESET}", end=' ', flush=True)
-            text = recognizer.recognize_google(audio, language=language['value'])
+            print(f"{CLEAR}{GREY}(transcribing){RESET}", end=' ', flush=True)
+            text = recognizer.recognize_google(audio, language=language)
 
             if not text:
                 raise sr.UnknownValueError
@@ -218,7 +231,7 @@ def record_voice(exit_chat) -> str | None:
         else:
             if not exit_chat['value']:
                 # start listening again
-                record_voice(language, exit_chat)
+                record_audio_message(language, exit_chat)
 
     except sr.UnknownValueError:
         print(f"{CLEAR}{GREY}Can't understand audio. Please try again.{RESET}", end=' ', flush=True)

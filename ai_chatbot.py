@@ -4,12 +4,7 @@ import helpers
 import keyboard
 import threading
 import re
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from terminal_colors import CYAN, RED, GREEN, GREY, RESET, CLEAR
 
 # import config and create logger
@@ -44,8 +39,11 @@ class AiChatbot:
         # thread object to handle chat tasks
         self.chat_thread = None
 
+        # chat history
+        self.messages = []
+
     def chat_with_avatar(self) -> None:
-        '''Starting point to chat with the avatar.'''
+        '''Entry point to chat with the avatar.'''
 
         # define keyboard event to exit chat at any time
         keyboard.on_press_key("esc", self.on_esc_pressed)
@@ -53,39 +51,16 @@ class AiChatbot:
         print(f'\n{GREY}Starting chat, please wait...{RESET}')
         helpers.write_to_csv(CHAT_HISTORY_CSV, 'NEW CHAT', timestamp=True)
 
-        print(f'\n{CYAN}# CHAT START #{RESET}')
-
-        # LANGCHAIN SETUP
-        # create openai model and link it to tools
-        llm_gpt4 = ChatOpenAI(model=config['openai_model'], api_key=config['openai_api_key'])
-
-        # create prompt
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", ("You are a helpful assistant answering questions."))
-                ("ai", "Hello! I am your helpful assistant. How can I help you today?"),
-                ("human", "Give me a good French comedy."),
-                ("ai", "Sure! How about 'Amélie'?"),
-                ("human", "Do you know the height of the Eiffel Tower?"),
-                ("ai", "Sure, the Eiffel Tower is 324 meters tall."),
-                ("placeholder", "{chat_history}"),
-                ("human", "{input}"),
-            ]
-        )
-
-        # create string output parser
-        str_output_parser = StrOutputParser()
-
-        # create chain
-        chain = prompt | llm_gpt4 | str_output_parser
-
-        # create message history
-        messages = []
-
         if self.exit_chat['value']:
             # exit program before starting chat if esc was pressed during setup
             exit()
 
+        print(f'\n{CYAN}# CHAT START #{RESET}')
+
+        # create chat history and chain
+        self.chain = helpers.build_chain()
+
+        # prompt for a new user input
         print(f'\n{RED}{USER_NAME}:{RESET}')
 
         if config['use_text']:
@@ -115,17 +90,15 @@ class AiChatbot:
                 # use direct chat input
                 while not self.exit_chat['value']:
                     if self.recording is False:
-                        # start a new record thread
-                        self.chat_thread = threading.Thread(target=self.record_message)
-                        self.chat_thread.start()
+                        self.record_message()
                     sleep(1)  # wait 1 second before checking again
 
         # stop keyboard listener
         keyboard.unhook_all()
 
-        # wait for chat thread to finish
-        if self.chat_thread and self.chat_thread.is_alive():
-            self.chat_thread.join()
+        # make sure temp files are deleted
+        if os.path.exists(config['temp_audio_file']):
+            os.remove(config['temp_audio_file'])
 
         print(f'\n{CYAN}# CHAT END #{RESET}')
 
@@ -140,7 +113,7 @@ class AiChatbot:
         if e.event_type == keyboard.KEY_DOWN and not self.exit_chat['value']:
             LOG.debug('Raising exit flag to terminate chat')
             self.exit_chat['value'] = True
-            message = 'Ending chat, please wait...' if self.input == 'voice' else 'Ending chat, PRESS ENTER to close'
+            message = 'Ending chat, PRESS ENTER to close' if config['use_text'] else 'Ending chat, please wait...'
             print(f'{CLEAR}{GREY}{message}{RESET}', flush=True)
 
     def record_message(self) -> None:
@@ -148,7 +121,7 @@ class AiChatbot:
 
         self.recording = True
 
-        new_message = helpers.record_voice(self.exit_chat)
+        new_message = helpers.record_audio_message(self.exit_chat)
 
         # Process new message on success or ask user to try again if no message was recorded
         if new_message:
@@ -176,19 +149,22 @@ class AiChatbot:
         print(f'{CLEAR}{GREY}(generate){RESET}', end=' ', flush=True)
 
         # get answer and tokens count, add it to prompt
-        answer, tokens = helpers.generate_llm_answer(messages=self.messages)
-        self.prompt_tokens += tokens[0]
-        self.completion_tokens += tokens[1]
+        answer = self.chain.invoke(
+            {
+                "input": message,
+                "chat_history": self.messages
+            }
+        )
 
-        # format answer
+        # format answer, capitalize first letter of each sentence
         sentences = re.split(r"(?<=[.!?])\s", answer)
         answer = ' '.join([sentence.strip().capitalize() for sentence in sentences])
 
         # add answer to prompt and chat history
-        self.messages.append({"role": "assistant", "content": answer})
+        self.messages.append(AIMessage(content=message))
         helpers.write_to_csv(CHAT_HISTORY_CSV, CHATBOT_NAME, answer, timestamp=True)
 
-        if self.output == 'talk':
+        if not config['use_text']:
             # generate tts
             print(f'{CLEAR}{GREY}(transcribe){RESET}', end=' ', flush=True)
             helpers.generate_tts(text=answer)

@@ -9,7 +9,8 @@ Date: 2024-07-25
 
 import os
 import logging
-from config_loader import config
+from config_loader import get_config
+config = get_config()
 
 # define a namespace common to all logger instances
 NAMESPACE = 'ai-chitchat'
@@ -31,6 +32,11 @@ except Exception:
     logging.basicConfig(level=log_level, format=log_format, filename=log_file)
 
 logging.getLogger(NAMESPACE)
+
+# empty log file if option is set
+if config['empty_log']:
+    with open(log_file, 'w'):
+        pass
 
 
 def get_logger(name: str) -> logging.Logger:

@@ -2,12 +2,42 @@
 # -*- coding: utf-8 -*-
 """
 Filename: config_loader.py
-Description: Loads the contents of the yaml configuration file into a 'config' variable, to be imported in all other scripts.
+Description: Loads and provides the contents of the yaml configuration file to all modules.
 Author: @alexdjulin
 Date: 2024-07-25
 """
 
 import yaml
+from typing import Optional, Dict
 
-with open("config.yaml", "r") as file:
-    config = yaml.safe_load(file)
+_config: Optional[Dict] = None
+
+
+def load_config(config_file: str) -> Dict:
+    ''' Load config file and return it as a dictionary 
+
+    Args:
+        config_file (str): path to the config file
+    '''
+
+    global _config
+
+    if _config is None:
+        try:
+            with open(config_file, "r") as file:
+                _config = yaml.safe_load(file)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Config file {config_file} not found.")
+        except yaml.YAMLError as e:
+            raise ValueError(f"Error parsing YAML file: {e}")
+
+    return _config
+
+
+def get_config() -> Dict:
+    ''' Return the loaded config dict'''
+
+    if _config is None:
+        raise ValueError("Config not loaded. Call 'load_config' first.")
+
+    return _config

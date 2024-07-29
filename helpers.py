@@ -2,22 +2,20 @@
 # -*- coding: utf-8 -*-
 """
 Filename: helpers.py
-Description: Define here all methods to be used in the main script.
+Description: Helper methods used by the class to perform atomic tasks.
 Example: SST, TTS, CSV read/write, LLM completion, etc.
 Author: @alexdjulin
 Date: 2024-07-25
 """
 
-from logger import get_logger
+import os
+import csv
 from datetime import datetime
 from time import sleep
 import edge_tts
 import asyncio
 from pydub import AudioSegment
 from pydub.playback import play
-from playsound import playsound
-import csv
-import os
 from textwrap import dedent
 import speech_recognition as sr
 from langchain_core.runnables.base import RunnableSequence
@@ -26,7 +24,10 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from terminal_colors import GREY, RESET, CLEAR
 
-from config_loader import config
+from config_loader import get_config
+config = get_config()
+
+from logger import get_logger
 LOG = get_logger(os.path.splitext(os.path.basename(__file__))[0])
 
 
@@ -52,47 +53,13 @@ def format_string(prompt: str) -> str:
     return prompt.strip()
 
 
-def load_from_csv(csvfile: str) -> dict:
+def write_to_csv(csvfile: str, *strings: list) -> bool:
     '''
-    Loads question and answers from csv file into a dict
-
-    Args:
-        csvfile (str): path to csv file
-
-    Return:
-        (dict): dict with question and answers
-
-    Raises:
-        Exception: if error reading csv file
-    '''
-
-    qna_dict = {}
-
-    try:
-        with open(csvfile, 'r', newline='', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            # store avatar name
-            qna_dict["What's your name?"] = f"My name is {config['avatar_name']}."
-            for row in reader:
-                question, answer = row
-                qna_dict[question] = answer
-            LOG.debug(f"Answers have been read from {csvfile}.")
-
-    except Exception as e:
-        LOG.error(f"Error reading from CSV file: {e}")
-        print(f'{GREY}Failed to load avatar story (see log).{RESET}')
-
-    return qna_dict
-
-
-def write_to_csv(csvfile: str, *strings: list, timestamp: bool = False) -> bool:
-    '''
-    Adds strings to a csv file on a new row
+    Adds chat messages to a csv file on a new row.
 
     Args:
         csvfile (str): path to csv file
         *strings (list): strings to add as columns to csv file
-        timestamp (bool): first column should be a timestamp
 
     Return:
         (bool): True if successful, False otherwise
@@ -106,7 +73,7 @@ def write_to_csv(csvfile: str, *strings: list, timestamp: bool = False) -> bool:
             csv_writer = csv.writer(csvfile, quoting=csv.QUOTE_ALL, doublequote=True)
             # remove tabs, line breaks and extra spaces
             safe_strings = [format_string(s) for s in strings]
-            if timestamp:
+            if config['add_timestamp']:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 safe_strings = [timestamp] + safe_strings
             csv_writer.writerow(safe_strings)
@@ -149,10 +116,12 @@ def build_chain() -> RunnableSequence:
     # create chain
     chain = prompt | llm_gpt4 | str_output_parser
 
+    LOG.debug(f"Chain created: {chain}")
+
     return chain
 
 
-def generate_tts(text: str) -> None:
+def generate_tts(text: str, language: str = None) -> None:
     '''
     Generates audio from text using edge_tts API and plays it
 
@@ -160,7 +129,7 @@ def generate_tts(text: str) -> None:
         text (str): text to generate audio from
     '''
 
-    voice = config['edgetts_voice']
+    voice = config['edgetts_voices'][language]
     audio_file = config['temp_audio_file']
 
     async def text_to_audio() -> None:
@@ -189,12 +158,14 @@ def generate_tts(text: str) -> None:
     os.remove(audio_file)
 
 
-def record_audio_message(exit_chat) -> str | None:
+def record_audio_message(exit_chat, input_method: str = None, language: str = None) -> str | None:
     '''Record voice and return text transcription.
 
     Args:
         exit_chat (dict): chat exit flag {'value': bool} passed by reference as mutable dicts so it 
         can be modified on keypress and updated here.
+        input_method (str): input method to use for transcription
+        language (str): language to use for transcription
 
     Return:
         (str | None): text transcription
@@ -205,7 +176,6 @@ def record_audio_message(exit_chat) -> str | None:
     '''
 
     text = ''
-    language = config['chat_language']
     recognizer = sr.Recognizer()
     microphone = sr.Microphone()
 
@@ -226,12 +196,12 @@ def record_audio_message(exit_chat) -> str | None:
             return text.capitalize()
 
     except sr.WaitTimeoutError:
-        if config['use_keyboard']:
+        if input_method == 'voice_k':
             print(f"{CLEAR}{GREY}Can't hear you. Please try again.{RESET}", end=' ', flush=True)
         else:
             if not exit_chat['value']:
                 # start listening again
-                record_audio_message(language, exit_chat)
+                record_audio_message(exit_chat, language)
 
     except sr.UnknownValueError:
         print(f"{CLEAR}{GREY}Can't understand audio. Please try again.{RESET}", end=' ', flush=True)

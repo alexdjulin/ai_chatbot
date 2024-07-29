@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Filename: ai_chatbot.py
+Description: Defines the AiChatbot class to chat with the avatar.
+Author: @alexdjulin
+Date: 2024-07-25
+"""
+
 import os
 from time import sleep
 import helpers
@@ -7,8 +16,11 @@ import re
 from langchain_core.messages import HumanMessage, AIMessage
 from terminal_colors import CYAN, RED, GREEN, GREY, RESET, CLEAR
 
-# import config and create logger
-from config_loader import config
+# import config
+from config_loader import get_config
+config = get_config()
+
+# define logger
 from logger import get_logger
 LOG = get_logger(os.path.splitext(os.path.basename(__file__))[0])
 
@@ -28,9 +40,7 @@ class AiChatbot:
     '''
 
     def __init__(self) -> None:
-        '''
-        Create class instance
-        '''
+        ''' Create class instance '''
 
         # flags
         self.recording = False
@@ -42,14 +52,44 @@ class AiChatbot:
         # chat history
         self.messages = []
 
-    def chat_with_avatar(self) -> None:
-        '''Entry point to chat with the avatar.'''
+        # chat settings (can be overridden by command line arguments)
+        self.input_method = config['input_method']
+        self.language = config['chat_language']
+
+    def chat_with_avatar(self, input_method: str = None, language: str = None) -> None:
+        '''Entry point to chat with the avatar.
+
+        Args:
+            language (str): overrides chat language defined in config
+        '''
+
+        # override input method if provided and checked if valid
+        if input_method:
+            self.input_method = input_method
+
+        valid_input_methods = {'text', 'voice', 'voice_k'}
+        if self.input_method not in valid_input_methods:
+            LOG.error(f"Invalid input method {self.input_method}. Chose from {valid_input_methods}")
+            raise ValueError(f'Invalid input method. Chose from: {valid_input_methods}')
+
+        LOG.debug(f'Input method: {self.input_method}')
+
+        # override language if provided and checked if valid
+        if language:
+            self.language = language
+
+        valid_languages = list(config['edgetts_voices'].keys())
+        if self.language not in valid_languages:
+            LOG.error(f"Invalid language '{self.language}'. Chose from {valid_languages}")
+            raise ValueError(f"Invalid language '{self.language}'. Chose from {valid_languages}")
+
+        LOG.debug(f'Language: {self.language}')
 
         # define keyboard event to exit chat at any time
         keyboard.on_press_key("esc", self.on_esc_pressed)
 
         print(f'\n{GREY}Starting chat, please wait...{RESET}')
-        helpers.write_to_csv(CHAT_HISTORY_CSV, 'NEW CHAT', timestamp=True)
+        helpers.write_to_csv(CHAT_HISTORY_CSV, 'NEW CHAT')
 
         if self.exit_chat['value']:
             # exit program before starting chat if esc was pressed during setup
@@ -63,7 +103,7 @@ class AiChatbot:
         # prompt for a new user input
         print(f'\n{RED}{USER_NAME}:{RESET}')
 
-        if config['use_text']:
+        if self.input_method == 'text':
             while not self.exit_chat['value']:
                 # get user message
                 new_message = input()
@@ -79,7 +119,7 @@ class AiChatbot:
                 self.chat_thread.start()
 
         else:
-            if config['use_keyboard']:
+            if self.input_method == 'voice_k':
                 # define keyboard event to trigger audio inpout
                 keyboard.on_press_key("space", self.on_space_pressed)
 
@@ -113,7 +153,7 @@ class AiChatbot:
         if e.event_type == keyboard.KEY_DOWN and not self.exit_chat['value']:
             LOG.debug('Raising exit flag to terminate chat')
             self.exit_chat['value'] = True
-            message = 'Ending chat, PRESS ENTER to close' if config['use_text'] else 'Ending chat, please wait...'
+            message = 'Ending chat, PRESS ENTER to close' if self.input_method == 'text' else 'Ending chat, please wait...'
             print(f'{CLEAR}{GREY}{message}{RESET}', flush=True)
 
     def record_message(self) -> None:
@@ -121,7 +161,7 @@ class AiChatbot:
 
         self.recording = True
 
-        new_message = helpers.record_audio_message(self.exit_chat)
+        new_message = helpers.record_audio_message(self.exit_chat, input_method=self.input_method, language=self.language)
 
         # Process new message on success or ask user to try again if no message was recorded
         if new_message:
@@ -137,12 +177,13 @@ class AiChatbot:
         '''
 
         # print message in speech mode
-        if not config['use_text']:
+        if not self.input_method == 'text':
             print(f'{CLEAR}{message.capitalize()}')
 
         # add message to prompt and chat history
         self.messages.append(HumanMessage(content=message))
-        helpers.write_to_csv(CHAT_HISTORY_CSV, USER_NAME, message, timestamp=True)
+        helpers.write_to_csv(CHAT_HISTORY_CSV, USER_NAME, message)
+        LOG.debug(f'Human Message: {message}')
 
         # print avatar feedback
         print(f'\n{CLEAR}{GREEN}{CHATBOT_NAME}:{RESET}')
@@ -162,12 +203,13 @@ class AiChatbot:
 
         # add answer to prompt and chat history
         self.messages.append(AIMessage(content=message))
-        helpers.write_to_csv(CHAT_HISTORY_CSV, CHATBOT_NAME, answer, timestamp=True)
+        helpers.write_to_csv(CHAT_HISTORY_CSV, CHATBOT_NAME, answer)
+        LOG.debug(f'AI Message: {answer}')
 
-        if not config['use_text']:
+        if not self.input_method == 'text':
             # generate tts
             print(f'{CLEAR}{GREY}(transcribe){RESET}', end=' ', flush=True)
-            helpers.generate_tts(text=answer)
+            helpers.generate_tts(text=answer, language=self.language)
 
         else:
             # print answer

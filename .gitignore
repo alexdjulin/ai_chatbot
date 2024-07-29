@@ -160,3 +160,4 @@ config.yaml
 # user files
 *.csv
 *.log
+*.ipynb

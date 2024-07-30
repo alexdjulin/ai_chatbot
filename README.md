@@ -1,6 +1,7 @@
 # AI Chit-Chat
 *A flexible and low-latency chat interface to converse with an AI bot using text or speech.*
 
+![chat_preview.png](readme/chat_preview.png)
 
 ## Description
 This project is an upgrade of my older [Virtual AI Avatar](https://github.com/alexdjulin/virtual-ai-avatar) chatbot project, to integrate langchain methods, GPT4 models and reduce conversation's latency. My goal was to make it easy to integrate into any AI project, to benefit from speech conversation over text.

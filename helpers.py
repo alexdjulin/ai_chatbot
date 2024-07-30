@@ -158,7 +158,7 @@ def generate_tts(text: str, language: str = None) -> None:
     os.remove(audio_file)
 
 
-def record_audio_message(exit_chat, input_method: str = None, language: str = None) -> str | None:
+def record_audio_message(exit_chat, input_method: str, language: str) -> str | None:
     '''Record voice and return text transcription.
 
     Args:

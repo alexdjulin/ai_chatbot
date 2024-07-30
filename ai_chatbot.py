@@ -25,10 +25,9 @@ from logger import get_logger
 LOG = get_logger(os.path.splitext(os.path.basename(__file__))[0])
 
 # load settings from config file
-CHATBOT_NAME = config['chatbot_name']
 USER_NAME = config['user_name']
+CHATBOT_NAME = config['chatbot_name']
 CHAT_HISTORY_CSV = config['chat_history']
-LOG_FILE = config['log_filepath']
 
 # create log folder if needed
 os.makedirs(os.path.dirname(CHAT_HISTORY_CSV), exist_ok=True)

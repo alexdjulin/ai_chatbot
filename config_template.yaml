@@ -1,7 +1,3 @@
-##################################################################################
-### TODO: rename this file to config.yaml and fill in the missing values below ###
-##################################################################################
-
 # USER SETTINGS
 ## How the user should interact with the avatar
 user_name: Me  # the name of the user as written to Terminal and chat history
@@ -20,8 +16,12 @@ chatbot_name: AI  # the name of the avatar as written to Terminal and chat histo
 
 # OPENAI SETTINGS
 ## We use OpenAI gpt model to generate an answer from a prompt
-openai_api_key:    # PASTE YOUR OPENAI API KEY HERE
+openai_api_key:   # PASTE YOUR OPENAI API KEY HERE
 openai_model: gpt-4o-mini  # the Openai model to use
+prompt_filepath: prompt.jsonl  # local path to jsonl file with prompts to use for the chatbot
+worker_type: agent  # the worker type to use, chain or agent
+tools_filepath: tools.py  # local path to python module defining the tools to use in the chatbot (location: repo root)
+agent_verbose: true  # print agent activity logs
 
 # EDGE TTS SETTINGS
 ## We use Microsoft Edge Text-to-Speech API
@@ -33,7 +33,10 @@ edgetts_voices:
   fr-FR: fr-FR-DeniseNeural 
   de-DE: de-DE-KatjaNeural
   ro-RO: ro-RO-AlinaNeural
-temp_audio_file: _temp.wav  # the temporary audio filepath to save the TTS audio to
+temp_audio_filepath: _temp.wav  # local path where to save the temporary TTS audio file (will be deleted after use)
+tts_rate: +10%
+tts_volume: +0%
+tts_pitch: +0Hz
 
 # SPEECH RECOGNITION SETTINGS
 ## We use Google Speech Recognition API to recognize the user's speech
@@ -42,11 +45,12 @@ speech_timeout: 5  # how many seconds to wait for the user to speak before timin
 # LOG SETTINGS
 # We use Python logging module to log debug information to a file
 log_level: DEBUG  # the log level to use
-log_filepath: logs/ai_chitchat.log  # the file to log to
+log_filepath: logs/ai_chitchat.log  # local path where the log file will be saved
 log_format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'  # the format of the log messages
 empty_log: true  # if true, the log file will be emptied on startup
 
 # CHAT HISTORY SETTINGS
 # We can save the current chat to a csv file
-chat_history: csv/chat_history.csv  # the file to save the chat history to
+chat_history: csv/chat_history.csv  # local path where the chat history will be saved
 add_timestamp: true  # if true, add a timestamp to each chat message
+clear_history: true  # if true, the chat history csv file will be emptied on startup

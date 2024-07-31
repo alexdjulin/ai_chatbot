@@ -8,30 +8,35 @@ Date: 2024-07-25
 """
 
 import os
+from pathlib import Path
 import logging
 from config_loader import get_config
 config = get_config()
 
 # define a namespace common to all logger instances
-NAMESPACE = 'ai-chitchat'
+NAMESPACE = 'ai_chitchat'
+levels = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
-# create root logger
 try:
-    levels = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
+    # create root logger from settings
     log_level = levels[config['log_level'].upper()]
     log_format = config['log_format']
-    log_file = config['log_filepath']
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
-    logging.basicConfig(level=log_level, format=log_format, filename=log_file)
+    log_dir = Path(__file__).parent
+    log_file = log_dir / Path(config['log_filepath'])
+    os.makedirs(log_file.parent, exist_ok=True)
+    logging.basicConfig(level=log_level, format=log_format, filename=log_file, force=True)
 
-except Exception:
-    # create default logger
-    log_level = 20  # INFO
+except Exception as e:
+    print(f"Error creating logger: {e}. Using default settings.")
+
+    # create root logger using default settings
+    log_level = levels['INFO']
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    log_file = 'logs/avatar.log'
-    logging.basicConfig(level=log_level, format=log_format, filename=log_file)
+    log_dir = Path(__file__).parent
+    log_file = log_dir / Path('logs/ai_chitchat.log')
+    os.makedirs(log_file.parent, exist_ok=True)
+    logging.basicConfig(level=log_level, format=log_format, filename=log_file, force=True)
 
-logging.getLogger(NAMESPACE)
 
 # empty log file if option is set
 if config['empty_log']:

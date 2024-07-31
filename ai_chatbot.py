@@ -8,13 +8,14 @@ Date: 2024-07-25
 """
 
 import os
+from pathlib import Path
+import re
 from time import sleep
-import helpers
+import helpers as helpers
+from terminal_colors import B_CYAN, B_I_CYAN, B_MAGENTA, B_I_MAGENTA, GREY, RESET, CLEAR
 import keyboard
 import threading
-import re
 from langchain_core.messages import HumanMessage, AIMessage
-from terminal_colors import CYAN, RED, GREEN, GREY, RESET, CLEAR
 
 # import config
 from config_loader import get_config
@@ -22,15 +23,18 @@ config = get_config()
 
 # define logger
 from logger import get_logger
-LOG = get_logger(os.path.splitext(os.path.basename(__file__))[0])
+LOG = get_logger(Path(__file__).stem)
 
-# load settings from config file
+# load user and chatbot names
 USER_NAME = config['user_name']
 CHATBOT_NAME = config['chatbot_name']
-CHAT_HISTORY_CSV = config['chat_history']
 
-# create log folder if needed
+# setup csv file to store chat history
+CHAT_HISTORY_CSV = Path(__file__).parent / Path(config['chat_history'])
 os.makedirs(os.path.dirname(CHAT_HISTORY_CSV), exist_ok=True)
+if os.path.exists(CHAT_HISTORY_CSV) and config['clear_history']:
+    with open(CHAT_HISTORY_CSV, 'w'):
+        pass
 
 
 class AiChatbot:
@@ -55,6 +59,23 @@ class AiChatbot:
         self.input_method = config['input_method']
         self.language = config['chat_language']
 
+        # langchain worker (chain or agent)
+        self.worker = None
+
+    def create_worker_chain(self) -> None:
+        ''' Create langchain chain '''
+
+        self.worker = helpers.build_chain()
+
+    def create_worker_agent(self, extra_info: list = None) -> None:
+        ''' Create langchain agent
+
+        Args:
+            extra_info (list): optional list of info to add as system messages
+        '''
+
+        self.worker = helpers.build_agent(extra_info)
+
     def chat_with_avatar(self, input_method: str = None, language: str = None) -> None:
         '''Entry point to chat with the avatar.
 
@@ -62,6 +83,10 @@ class AiChatbot:
             language (str): overrides chat language defined in config
         '''
 
+        if self.worker is None:
+            LOG.error('self.worker is None. Call create_worker_chain or create_worker_agent before chat_with_avatar.')
+            raise ValueError('Worker not defined. Please create a worker chain or agent before starting chat.')
+        
         # override input method if provided and checked if valid
         if input_method:
             self.input_method = input_method
@@ -94,13 +119,10 @@ class AiChatbot:
             # exit program before starting chat if esc was pressed during setup
             exit()
 
-        print(f'\n{CYAN}# CHAT START #{RESET}')
-
-        # create chat history and chain
-        self.chain = helpers.build_chain()
+        print(f'\n{GREY}# CHAT STARTED #{GREY}')
 
         # prompt for a new user input
-        print(f'\n{RED}{USER_NAME}:{RESET}')
+        print(f'\n{B_CYAN}{USER_NAME}:{RESET}')
 
         if self.input_method == 'text':
             while not self.exit_chat['value']:
@@ -136,10 +158,10 @@ class AiChatbot:
         keyboard.unhook_all()
 
         # make sure temp files are deleted
-        if os.path.exists(config['temp_audio_file']):
-            os.remove(config['temp_audio_file'])
+        if os.path.exists(config['temp_audio_filepath']):
+            os.remove(config['temp_audio_filepath'])
 
-        print(f'\n{CYAN}# CHAT END #{RESET}')
+        print(f'\n{GREY}# CHAT ENDED #{GREY}')
 
     def on_space_pressed(self, e) -> None:
         ''' When space is pressed, start a thread to record your voice and send message to chatGPT '''
@@ -168,7 +190,7 @@ class AiChatbot:
         else:
             self.recording = False
 
-    def generate_model_answer(self, message: str) -> None:
+    def generate_model_answer(self, user_message: str) -> None:
         '''Send new message and get answer from the LLM.
 
         Args:
@@ -177,43 +199,43 @@ class AiChatbot:
 
         # print message in speech mode
         if not self.input_method == 'text':
-            print(f'{CLEAR}{message.capitalize()}')
+            print(f'{CLEAR}{B_I_CYAN}{user_message.capitalize()}{RESET}')
 
         # add message to prompt and chat history
-        self.messages.append(HumanMessage(content=message))
-        helpers.write_to_csv(CHAT_HISTORY_CSV, USER_NAME, message)
-        LOG.debug(f'Human Message: {message}')
+        self.messages.append(HumanMessage(content=user_message))
+        helpers.write_to_csv(CHAT_HISTORY_CSV, USER_NAME, user_message)
+        LOG.debug(f'Human Message: {user_message}')
 
         # print avatar feedback
-        print(f'\n{CLEAR}{GREEN}{CHATBOT_NAME}:{RESET}')
+        print(f'\n{CLEAR}{B_MAGENTA}{CHATBOT_NAME}:{RESET}')
         print(f'{CLEAR}{GREY}(generate){RESET}', end=' ', flush=True)
 
-        # get answer and tokens count, add it to prompt
-        answer = self.chain.invoke(
-            {
-                "input": message,
-                "chat_history": self.messages
-            }
-        )
+        # invoke langchain worker and get answer
+        answer = self.worker.invoke({"input": user_message, "chat_history": self.messages})
 
-        # format answer, capitalize first letter of each sentence
-        sentences = re.split(r"(?<=[.!?])\s", answer)
-        answer = ' '.join([sentence.strip().capitalize() for sentence in sentences])
+        # extract answer from dict when using an agent
+        if isinstance(answer, dict):
+            if 'output' in answer:
+                answer = answer['output']
+
+        # remove any unwanted characters
+        ai_message = re.sub(r'[*|/|\\]', '', answer)
 
         # add answer to prompt and chat history
-        self.messages.append(AIMessage(content=message))
-        helpers.write_to_csv(CHAT_HISTORY_CSV, CHATBOT_NAME, answer)
-        LOG.debug(f'AI Message: {answer}')
+        self.messages.append(AIMessage(content=ai_message))
+
+        helpers.write_to_csv(CHAT_HISTORY_CSV, CHATBOT_NAME, ai_message)
+        LOG.debug(f'AI Message: {ai_message}')
 
         if not self.input_method == 'text':
             # generate tts
             print(f'{CLEAR}{GREY}(transcribe){RESET}', end=' ', flush=True)
-            helpers.generate_tts(text=answer, language=self.language)
+            helpers.generate_tts(text=ai_message, language=self.language)
 
         else:
             # print answer
-            print(f'{CLEAR}{answer}')
+            print(f'{CLEAR}{B_I_MAGENTA}{ai_message}{RESET}')
 
         # prompt for a new chat
         self.recording = False
-        print(f'\n{RED}{USER_NAME}:{RESET}')
+        print(f'\n{B_CYAN}{USER_NAME}:{RESET}')

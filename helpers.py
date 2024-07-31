@@ -9,26 +9,36 @@ Date: 2024-07-25
 """
 
 import os
+from pathlib import Path
+import sys
 import csv
+import json
 from datetime import datetime
 from time import sleep
+from textwrap import dedent
+# TTS
 import edge_tts
 import asyncio
+# Audio playback
 from pydub import AudioSegment
 from pydub.playback import play
-from textwrap import dedent
+# STT
 import speech_recognition as sr
+# langchain
 from langchain_core.runnables.base import RunnableSequence
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from terminal_colors import GREY, RESET, CLEAR
-
+# terminal display
+from terminal_colors import GREY, B_MAGENTA, B_I_MAGENTA, RESET, CLEAR
+# config loader
 from config_loader import get_config
 config = get_config()
-
+# logger
 from logger import get_logger
-LOG = get_logger(os.path.splitext(os.path.basename(__file__))[0])
+LOG = get_logger(Path(__file__).stem)
 
 
 def format_string(prompt: str) -> str:
@@ -85,6 +95,30 @@ def write_to_csv(csvfile: str, *strings: list) -> bool:
     return True
 
 
+def load_prompt_messages(prompt_filepath: str = None) -> list:
+    '''
+    Loads messages from a jsonl file and returns them as a list of tuples.
+
+    Args:
+        prompt_filepath (str): path to jsonl file
+
+    Return:
+        (list): list of tuples with role and content
+    '''
+ 
+    messages = []
+
+    if not prompt_filepath:
+        prompt_filepath = Path(__file__).parent / Path(config['prompt_filepath'])
+
+    with open(prompt_filepath, 'r', encoding='utf-8') as f:
+        for line in f:
+            message = json.loads(line)['role'], json.loads(line)['content']
+            messages.append(message)
+
+    return messages
+
+
 def build_chain() -> RunnableSequence:
     '''Define the langchain chain to chat with the avatar.
 
@@ -95,20 +129,13 @@ def build_chain() -> RunnableSequence:
     # create openai model and link it to tools
     llm_gpt4 = ChatOpenAI(model=config['openai_model'], api_key=config['openai_api_key'])
 
+    # load messages
+    messages = load_prompt_messages()
+    messages.append(("placeholder", "{chat_history}"))
+    messages.append(("human", "{input}"))
+
     # create prompt
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", "You are a helpful assistant answering questions."),
-            ("system", "Keep your answers short and straight to the point. Never use more than 2 or 3 sentences."),
-            ("ai", "Hello! I am your helpful assistant. How can I help you today?"),
-            ("human", "Give me a good French comedy."),
-            ("ai", "Sure! How about 'Amélie'?"),
-            ("human", "Do you know the height of the Eiffel Tower?"),
-            ("ai", "Sure, the Eiffel Tower is 324 meters tall."),
-            ("placeholder", "{chat_history}"),
-            ("human", "{input}"),
-        ]
-    )
+    prompt = ChatPromptTemplate.from_messages(messages)
 
     # create string output parser
     str_output_parser = StrOutputParser()
@@ -121,6 +148,50 @@ def build_chain() -> RunnableSequence:
     return chain
 
 
+def build_agent(extra_info: list = None) -> AgentExecutor:
+    '''Defines a langchain agent with access to a list of tools to perform a task.
+
+    Args:
+        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
+
+    Return:
+        (AgentExecutor): the agent instance
+    '''
+
+    # import tools module
+    try:
+        sys.path.append(os.path.dirname(config['tools_filepath']))
+        import tools
+
+    except ImportError as e:
+        LOG.error(f"Error importing tools module: {e}. Add a tool-")
+        raise
+
+    # create openai model and link it to tools
+    llm_gpt4 = ChatOpenAI(model=config['openai_model'], api_key=config['openai_api_key'])
+
+    # create prompt
+    messages = load_prompt_messages()
+
+    # add extra info as system messages
+    if extra_info:
+        for info in extra_info:
+            messages.append(("system", info))
+
+    messages.append(("placeholder", "{chat_history}"))
+    messages.append(("human", "{input}"))
+    messages.append(("placeholder", "{agent_scratchpad}"))
+
+    # create prompt
+    prompt = ChatPromptTemplate.from_messages(messages)
+
+    # create langchain agent
+    agent = create_tool_calling_agent(llm_gpt4, tools.agent_tools, prompt)
+    agent_executor = AgentExecutor(agent=agent, tools=tools.agent_tools, verbose=config['agent_verbose'])
+
+    return agent_executor
+
+
 def generate_tts(text: str, language: str = None) -> None:
     '''
     Generates audio from text using edge_tts API and plays it
@@ -130,11 +201,19 @@ def generate_tts(text: str, language: str = None) -> None:
     '''
 
     voice = config['edgetts_voices'][language]
-    audio_file = config['temp_audio_file']
+    audio_file = config['temp_audio_filepath']
+    os.makedirs(Path(audio_file).parent, exist_ok=True)
 
     async def text_to_audio() -> None:
         """ Generate speech from text and save it to a file """
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(
+            text=text,
+            voice=voice,
+            rate=config['tts_rate'],
+            volume=config['tts_volume'],
+            pitch=config['tts_pitch']
+        )
+
         await communicate.save(audio_file)
 
     # generate audio data
@@ -144,11 +223,11 @@ def generate_tts(text: str, language: str = None) -> None:
     except Exception as e:
         LOG.error(f"Error generating and playing audio: {e}. Voice deactivated.")
         # print answer and exit
-        print(f'{CLEAR}{text}')
+        print(f'{CLEAR}{B_I_MAGENTA}{text}')
         return
 
     # print answer
-    print(f'{CLEAR}{text}')
+    print(f'{CLEAR}{B_I_MAGENTA}{text}')
 
     # play and delete audio file
     audio = AudioSegment.from_file(audio_file)
@@ -183,12 +262,14 @@ def record_audio_message(exit_chat, input_method: str, language: str) -> str | N
 
         with microphone as source:
 
-            print(f"{CLEAR}{GREY}(listening){RESET}", end=' ', flush=True)
-            timeout = config['speech_timeout']
-            audio = recognizer.listen(source, timeout=timeout)
+            if not exit_chat['value']:
+                print(f"{CLEAR}{GREY}(listening){RESET}", end=' ', flush=True)
+                timeout = config['speech_timeout']
+                audio = recognizer.listen(source, timeout=timeout)
 
-            print(f"{CLEAR}{GREY}(transcribing){RESET}", end=' ', flush=True)
-            text = recognizer.recognize_google(audio, language=language)
+            if not exit_chat['value']:
+                print(f"{CLEAR}{GREY}(transcribing){RESET}", end=' ', flush=True)
+                text = recognizer.recognize_google(audio, language=language)
 
             if not text:
                 raise sr.UnknownValueError
@@ -201,14 +282,16 @@ def record_audio_message(exit_chat, input_method: str, language: str) -> str | N
         else:
             if not exit_chat['value']:
                 # start listening again
-                record_audio_message(exit_chat, language)
+                record_audio_message(exit_chat, input_method, language)
 
     except sr.UnknownValueError:
-        print(f"{CLEAR}{GREY}Can't understand audio. Please try again.{RESET}", end=' ', flush=True)
+        if not exit_chat['value']:
+            print(f"{CLEAR}{GREY}Can't understand audio. Please try again.{RESET}", end=' ', flush=True)
         sleep(2)
 
     except sr.RequestError:
-        print(f"{CLEAR}{GREY}Error connecting to Google API. Please try again.{RESET}", end=' ', flush=True)
+        if not exit_chat['value']:
+            print(f"{CLEAR}{GREY}Error connecting to Google API. Please try again.{RESET}", end=' ', flush=True)
         sleep(2)
 
     return None

@@ -31,4 +31,5 @@ if __name__ == '__main__':
     # create avatar instance and start chat
     from ai_chatbot import AiChatbot
     avatar = AiChatbot()
+    avatar.create_worker_chain()
     avatar.chat_with_avatar(input_method, language)

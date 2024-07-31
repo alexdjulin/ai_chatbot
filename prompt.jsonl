@@ -1,0 +1,7 @@
+{"role": "system", "content": "You are a helpful assistant answering questions."}
+{"role": "system", "content": "Keep your answers short and straight to the point. Never use more than 2 or 3 sentences."}
+{"role": "ai", "content": "Hello! I am your helpful assistant. How can I help you today?"}
+{"role": "human", "content": "Give me a good French comedy."}
+{"role": "ai", "content": "Sure! How about 'Amélie'?"}
+{"role": "human", "content": "Do you know the height of the Eiffel Tower?"}
+{"role": "ai", "content": "Sure, the Eiffel Tower is 324 meters tall."}

@@ -1,0 +1,9 @@
+edge-tts
+pydub
+SpeechRecognition
+keyboard
+PyAudio
+setuptools
+PyYAML
+langchain
+langchain_openai

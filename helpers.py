@@ -287,11 +287,11 @@ def record_audio_message(exit_chat, input_method: str, language: str) -> str | N
     except sr.UnknownValueError:
         if not exit_chat['value']:
             print(f"{CLEAR}{GREY}Can't understand audio. Please try again.{RESET}", end=' ', flush=True)
-        sleep(2)
+        sleep(1)
 
     except sr.RequestError:
         if not exit_chat['value']:
             print(f"{CLEAR}{GREY}Error connecting to Google API. Please try again.{RESET}", end=' ', flush=True)
-        sleep(2)
+        sleep(1)
 
     return None

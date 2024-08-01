@@ -19,9 +19,8 @@ chatbot_name: AI  # the name of the avatar as written to Terminal and chat histo
 openai_api_key:   # PASTE YOUR OPENAI API KEY HERE
 openai_model: gpt-4o-mini  # the Openai model to use
 prompt_filepath: prompt.jsonl  # local path to jsonl file with prompts to use for the chatbot
-worker_type: agent  # the worker type to use, chain or agent
-tools_filepath: tools.py  # local path to python module defining the tools to use in the chatbot (location: repo root)
-agent_verbose: true  # print agent activity logs
+tools_filepath: tools.py  # local path to python module defining the tools available to the langchain agent (if used)
+agent_verbose: false  # print agent activity logs
 
 # EDGE TTS SETTINGS
 ## We use Microsoft Edge Text-to-Speech API

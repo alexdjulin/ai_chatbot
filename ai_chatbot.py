@@ -62,10 +62,14 @@ class AiChatbot:
         # langchain worker (chain or agent)
         self.worker = None
 
-    def create_worker_chain(self) -> None:
-        ''' Create langchain chain '''
+    def create_worker_chain(self, extra_info: list = None) -> None:
+        ''' Create langchain chain
 
-        self.worker = helpers.build_chain()
+        Args:
+            extra_info (list): optional list of info to add as system messages
+        '''
+
+        self.worker = helpers.build_chain(extra_info)
 
     def create_worker_agent(self, extra_info: list = None) -> None:
         ''' Create langchain agent

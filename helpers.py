@@ -119,8 +119,11 @@ def load_prompt_messages(prompt_filepath: str = None) -> list:
     return messages
 
 
-def build_chain() -> RunnableSequence:
+def build_chain(extra_info: list = None) -> RunnableSequence:
     '''Define the langchain chain to chat with the avatar.
+
+    Args:
+        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
 
     Return:
         (RunnableSequence): chain instance
@@ -131,6 +134,13 @@ def build_chain() -> RunnableSequence:
 
     # load messages
     messages = load_prompt_messages()
+
+    # add extra info as system messages
+    if extra_info:
+        for info in extra_info:
+            messages.append(("system", info))
+
+    # add placeholders
     messages.append(("placeholder", "{chat_history}"))
     messages.append(("human", "{input}"))
 
@@ -178,6 +188,7 @@ def build_agent(extra_info: list = None) -> AgentExecutor:
         for info in extra_info:
             messages.append(("system", info))
 
+    # add placeholders
     messages.append(("placeholder", "{chat_history}"))
     messages.append(("human", "{input}"))
     messages.append(("placeholder", "{agent_scratchpad}"))

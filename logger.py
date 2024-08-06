@@ -14,7 +14,7 @@ from config_loader import get_config
 config = get_config()
 
 # define a namespace common to all logger instances
-NAMESPACE = 'ai_chitchat'
+NAMESPACE = 'ai_chatbot'
 levels = {'NOTSET': 0, 'DEBUG': 10, 'INFO': 20, 'WARNING': 30, 'ERROR': 40, 'CRITICAL': 50}
 
 try:
@@ -33,7 +33,7 @@ except Exception as e:
     log_level = levels['INFO']
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     log_dir = Path(__file__).parent
-    log_file = log_dir / Path('logs/ai_chitchat.log')
+    log_file = log_dir / Path('logs/ai_chatbot.log')
     os.makedirs(log_file.parent, exist_ok=True)
     logging.basicConfig(level=log_level, format=log_format, filename=log_file, force=True)
 

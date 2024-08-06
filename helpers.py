@@ -31,14 +31,17 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-# terminal display
-from terminal_colors import GREY, B_MAGENTA, B_I_MAGENTA, RESET, CLEAR
 # config loader
 from config_loader import get_config
 config = get_config()
 # logger
 from logger import get_logger
 LOG = get_logger(Path(__file__).stem)
+# terminal colors, chatbot color dynamically loaded from config
+from terminal_colors import GREY, CLEAR, RESET
+from importlib import import_module
+terminal_colors_md = import_module('terminal_colors')
+AI_CLR = getattr(terminal_colors_md, config['ai_color'])
 
 
 def format_string(prompt: str) -> str:
@@ -105,7 +108,7 @@ def load_prompt_messages(prompt_filepath: str = None) -> list:
     Return:
         (list): list of tuples with role and content
     '''
- 
+
     messages = []
 
     if not prompt_filepath:
@@ -119,18 +122,32 @@ def load_prompt_messages(prompt_filepath: str = None) -> list:
     return messages
 
 
-def build_chain() -> RunnableSequence:
+def build_chain(system_messages: list = None) -> RunnableSequence:
     '''Define the langchain chain to chat with the avatar.
+
+    Args:
+        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
 
     Return:
         (RunnableSequence): chain instance
     '''
 
     # create openai model and link it to tools
-    llm_gpt4 = ChatOpenAI(model=config['openai_model'], api_key=config['openai_api_key'])
+    llm_gpt4 = ChatOpenAI(
+        model=config['openai_model'],
+        api_key=config['openai_api_key'],
+        temperature=config['openai_temperature'],
+    )
 
     # load messages
     messages = load_prompt_messages()
+
+    # add extra info as system messages
+    if system_messages:
+        for info in system_messages:
+            messages.append(("system", info))
+
+    # add placeholders
     messages.append(("placeholder", "{chat_history}"))
     messages.append(("human", "{input}"))
 
@@ -148,11 +165,12 @@ def build_chain() -> RunnableSequence:
     return chain
 
 
-def build_agent(extra_info: list = None) -> AgentExecutor:
+def build_agent(system_messages: list[str] = None, placeholders: list[str] = None) -> AgentExecutor:
     '''Defines a langchain agent with access to a list of tools to perform a task.
 
     Args:
-        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
+        system_messages: optional list of system messages added to the prompt
+        placeholders: optional list of placeholder variables added to the prompt
 
     Return:
         (AgentExecutor): the agent instance
@@ -174,13 +192,18 @@ def build_agent(extra_info: list = None) -> AgentExecutor:
     messages = load_prompt_messages()
 
     # add extra info as system messages
-    if extra_info:
-        for info in extra_info:
+    if system_messages:
+        for info in system_messages:
             messages.append(("system", info))
 
+    # add default placeholders
     messages.append(("placeholder", "{chat_history}"))
     messages.append(("human", "{input}"))
     messages.append(("placeholder", "{agent_scratchpad}"))
+
+    if placeholders:
+        for placeholder in placeholders:
+            messages.append(("placeholder", "{" + placeholder + "}"))
 
     # create prompt
     prompt = ChatPromptTemplate.from_messages(messages)
@@ -223,11 +246,11 @@ def generate_tts(text: str, language: str = None) -> None:
     except Exception as e:
         LOG.error(f"Error generating and playing audio: {e}. Voice deactivated.")
         # print answer and exit
-        print(f'{CLEAR}{B_I_MAGENTA}{text}')
+        print(f'{CLEAR}{AI_CLR}{text}')
         return
 
     # print answer
-    print(f'{CLEAR}{B_I_MAGENTA}{text}')
+    print(f'{CLEAR}{AI_CLR}{text}')
 
     # play and delete audio file
     audio = AudioSegment.from_file(audio_file)
@@ -264,8 +287,7 @@ def record_audio_message(exit_chat, input_method: str, language: str) -> str | N
 
             if not exit_chat['value']:
                 print(f"{CLEAR}{GREY}(listening){RESET}", end=' ', flush=True)
-                timeout = config['speech_timeout']
-                audio = recognizer.listen(source, timeout=timeout)
+                audio = recognizer.listen(source, timeout=config['speech_timeout'], phrase_time_limit=config['phrase_time_out'])
 
             if not exit_chat['value']:
                 print(f"{CLEAR}{GREY}(transcribing){RESET}", end=' ', flush=True)
@@ -287,11 +309,11 @@ def record_audio_message(exit_chat, input_method: str, language: str) -> str | N
     except sr.UnknownValueError:
         if not exit_chat['value']:
             print(f"{CLEAR}{GREY}Can't understand audio. Please try again.{RESET}", end=' ', flush=True)
-        sleep(2)
+        sleep(0.5)
 
     except sr.RequestError:
         if not exit_chat['value']:
             print(f"{CLEAR}{GREY}Error connecting to Google API. Please try again.{RESET}", end=' ', flush=True)
-        sleep(2)
+        sleep(0.5)
 
     return None

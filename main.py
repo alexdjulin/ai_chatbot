@@ -28,8 +28,15 @@ if __name__ == '__main__':
     # load config file
     load_config(config_file)
 
-    # create avatar instance and start chat
+    # create avatar instance
     from ai_chatbot import AiChatbot
     avatar = AiChatbot()
-    avatar.create_worker_chain()
+
+    # initialise a worker chain or agent (uncomment only one of the following)
+    # avatar.create_worker_chain()
+    # avatar.create_worker_chain(system_messages=['My name is Alex', 'I am a software developer', 'I like coding, trail running and snorkeling'])
+    avatar.create_worker_agent()
+    # avatar.create_worker_agent(system_messages=["My favourite dish is the Cheese Fondue."])
+
+    # start chat
     avatar.chat_with_avatar(input_method, language)

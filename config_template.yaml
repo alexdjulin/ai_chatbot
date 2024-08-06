@@ -9,18 +9,20 @@ input_method: voice  # specify default input method for chatbot
 # Chose default language to converse with the avatar (can be overriden by argparse).
 ## This setting is ignored in input text mode.
 chat_language: en-US
+user_color: B_I_CYAN  # the color of the user's text in the terminal (see terminal_colors module)
 
 # AVATAR SETTINGS
 ## Information about the AI bot
 chatbot_name: AI  # the name of the avatar as written to Terminal and chat history
+ai_color: B_I_MAGENTA  # the color of the avatar's text in the terminal (see terminal_colors module)
 
 # OPENAI SETTINGS
 ## We use OpenAI gpt model to generate an answer from a prompt
 openai_api_key:   # PASTE YOUR OPENAI API KEY HERE
 openai_model: gpt-4o-mini  # the Openai model to use
+temperature: 1  # the temperature of the model (higher values make the model more creative)
 prompt_filepath: prompt.jsonl  # local path to jsonl file with prompts to use for the chatbot
-worker_type: agent  # the worker type to use, chain or agent
-tools_filepath: tools.py  # local path to python module defining the tools to use in the chatbot (location: repo root)
+tools_filepath: tools.py  # local path to python module tools.py defining the tools available to the langchain agent (if used)
 agent_verbose: true  # print agent activity logs
 
 # EDGE TTS SETTINGS
@@ -34,18 +36,19 @@ edgetts_voices:
   de-DE: de-DE-KatjaNeural
   ro-RO: ro-RO-AlinaNeural
 temp_audio_filepath: _temp.wav  # local path where to save the temporary TTS audio file (will be deleted after use)
-tts_rate: +10%
-tts_volume: +0%
-tts_pitch: +0Hz
+tts_rate: +10%  # the rate of speech (speed) in percentage
+tts_volume: +0%  # the volume of speech in percentage
+tts_pitch: +0Hz  # the pitch of speech in Hz
 
 # SPEECH RECOGNITION SETTINGS
 ## We use Google Speech Recognition API to recognize the user's speech
-speech_timeout: 5  # how many seconds to wait for the user to speak before timing out
+speech_timeout: 10  # how many seconds to wait for the user to speak before timing out
+phrase_time_out: 10  # how many seconds to wait for the user to resume talking after a pause (increase the latency)
 
 # LOG SETTINGS
 # We use Python logging module to log debug information to a file
 log_level: DEBUG  # the log level to use
-log_filepath: logs/ai_chitchat.log  # local path where the log file will be saved
+log_filepath: logs/ai_chatbot.log  # local path where the log file will be saved
 log_format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'  # the format of the log messages
 empty_log: true  # if true, the log file will be emptied on startup
 

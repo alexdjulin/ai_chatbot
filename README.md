@@ -14,8 +14,8 @@ Here are example of use-cases where I implemented this project.
 ## Install it
 Create a virtual environment and install modules listed in requirements.txt as follows
 ```bash
-git clone https://github.com/alexdjulin/ai-chitchat.git
-cd ai-chitchat
+git clone https://github.com/alexdjulin/ai-chatbot.git
+cd ai-chatbot
 python -m venv .venv
 .venv/Scripts/activate.bat
 pip install -r requirements.txt

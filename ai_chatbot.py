@@ -12,7 +12,6 @@ from pathlib import Path
 import re
 from time import sleep
 import helpers as helpers
-from terminal_colors import B_CYAN, B_I_CYAN, B_MAGENTA, B_I_MAGENTA, GREY, RESET, CLEAR
 import keyboard
 import threading
 from langchain_core.messages import HumanMessage, AIMessage
@@ -28,6 +27,13 @@ LOG = get_logger(Path(__file__).stem)
 # load user and chatbot names
 USER_NAME = config['user_name']
 CHATBOT_NAME = config['chatbot_name']
+
+# load terminal colors, user and chatbot colors are dynamically loaded from config
+from terminal_colors import GREY, RESET, CLEAR
+from importlib import import_module
+terminal_colors_md = import_module('terminal_colors')
+USER_CLR = getattr(terminal_colors_md, config['user_color'])
+AI_CLR = getattr(terminal_colors_md, config['ai_color'])
 
 # setup csv file to store chat history
 CHAT_HISTORY_CSV = Path(__file__).parent / Path(config['chat_history'])
@@ -62,19 +68,24 @@ class AiChatbot:
         # langchain worker (chain or agent)
         self.worker = None
 
-    def create_worker_chain(self) -> None:
-        ''' Create langchain chain '''
-
-        self.worker = helpers.build_chain()
-
-    def create_worker_agent(self, extra_info: list = None) -> None:
-        ''' Create langchain agent
+    def create_worker_chain(self, system_messages: list[str] = None) -> None:
+        ''' Create langchain chain
 
         Args:
             extra_info (list): optional list of info to add as system messages
         '''
 
-        self.worker = helpers.build_agent(extra_info)
+        self.worker = helpers.build_chain(system_messages)
+
+    def create_worker_agent(self, system_messages: list[str] = None, placeholders: list[str] = None) -> None:
+        ''' Create langchain agent
+
+        Args:
+            system_messages: optional list of system messages added to the prompt
+            placeholders: optional list of placeholder variables added to the prompt
+        '''
+
+        self.worker = helpers.build_agent(system_messages, placeholders)
 
     def chat_with_avatar(self, input_method: str = None, language: str = None) -> None:
         '''Entry point to chat with the avatar.
@@ -122,7 +133,7 @@ class AiChatbot:
         print(f'\n{GREY}# CHAT STARTED #{GREY}')
 
         # prompt for a new user input
-        print(f'\n{B_CYAN}{USER_NAME}:{RESET}')
+        print(f'\n{USER_CLR}{USER_NAME}:{RESET}')
 
         if self.input_method == 'text':
             while not self.exit_chat['value']:
@@ -139,20 +150,19 @@ class AiChatbot:
                 self.chat_thread = threading.Thread(target=self.generate_model_answer, args=[new_message])
                 self.chat_thread.start()
 
-        else:
-            if self.input_method == 'voice_k':
-                # define keyboard event to trigger audio inpout
-                keyboard.on_press_key("space", self.on_space_pressed)
+        elif self.input_method == 'voice_k':
+            # define keyboard event to trigger audio inpout
+            keyboard.on_press_key("space", self.on_space_pressed)
 
-                while not self.exit_chat['value']:
-                    sleep(1)  # wait 1 second before checking again
+            while not self.exit_chat['value']:
+                sleep(1)  # wait 1 second before checking again
 
-            else:
-                # use direct chat input
-                while not self.exit_chat['value']:
-                    if self.recording is False:
-                        self.record_message()
-                    sleep(1)  # wait 1 second before checking again
+        else:  # self.input_method == 'voice'
+            # use direct chat input
+            while not self.exit_chat['value']:
+                if self.recording is False:
+                    self.record_message()
+                sleep(1)  # wait 1 second before checking again
 
         # stop keyboard listener
         keyboard.unhook_all()
@@ -199,7 +209,7 @@ class AiChatbot:
 
         # print message in speech mode
         if not self.input_method == 'text':
-            print(f'{CLEAR}{B_I_CYAN}{user_message.capitalize()}{RESET}')
+            print(f'{CLEAR}{USER_CLR}{user_message.capitalize()}{RESET}')
 
         # add message to prompt and chat history
         self.messages.append(HumanMessage(content=user_message))
@@ -207,7 +217,7 @@ class AiChatbot:
         LOG.debug(f'Human Message: {user_message}')
 
         # print avatar feedback
-        print(f'\n{CLEAR}{B_MAGENTA}{CHATBOT_NAME}:{RESET}')
+        print(f'\n{CLEAR}{AI_CLR}{CHATBOT_NAME}:{RESET}')
         print(f'{CLEAR}{GREY}(generate){RESET}', end=' ', flush=True)
 
         # invoke langchain worker and get answer
@@ -234,8 +244,8 @@ class AiChatbot:
 
         else:
             # print answer
-            print(f'{CLEAR}{B_I_MAGENTA}{ai_message}{RESET}')
+            print(f'{CLEAR}{AI_CLR}{ai_message}{RESET}')
 
         # prompt for a new chat
         self.recording = False
-        print(f'\n{B_CYAN}{USER_NAME}:{RESET}')
+        print(f'\n{USER_CLR}{USER_NAME}:{RESET}')

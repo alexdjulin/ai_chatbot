@@ -29,6 +29,7 @@ if __name__ == '__main__':
     load_config(config_file)
 
     # create avatar instance
+    # create avatar instance
     from ai_chatbot import AiChatbot
     avatar = AiChatbot()
 

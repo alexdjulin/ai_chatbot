@@ -128,6 +128,9 @@ def build_chain(system_messages: list = None) -> RunnableSequence:
     Args:
         extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
 
+    Args:
+        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
+
     Return:
         (RunnableSequence): chain instance
     '''

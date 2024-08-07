@@ -18,6 +18,13 @@ def load_config(config_file: str) -> Dict:
 
     Args:
         config_file (str): path to the config file
+
+    Returns:
+        (Dict): the loaded configuration as a dictionary
+
+    Raises:
+        FileNotFoundError: if config file is not found
+        ValueError: if error parsing the YAML file
     '''
 
     global _config
@@ -35,7 +42,11 @@ def load_config(config_file: str) -> Dict:
 
 
 def get_config() -> Dict:
-    ''' Return the loaded config dict'''
+    ''' Return the loaded config dict
+
+    Raises:
+        ValueError: if config is not loaded
+    '''
 
     if _config is None:
         raise ValueError("Config not loaded. Call 'load_config' first.")

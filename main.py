@@ -34,9 +34,7 @@ if __name__ == '__main__':
 
     # initialise a worker chain or agent (uncomment only one of the following)
     # avatar.create_worker_chain()
-    # avatar.create_worker_chain(system_messages=['My name is Alex', 'I am a software developer', 'I like coding, trail running and snorkeling'])
     avatar.create_worker_agent()
-    # avatar.create_worker_agent(system_messages=["My favourite dish is the Cheese Fondue."])
 
     # start chat
     avatar.chat_with_avatar(input_method, language)

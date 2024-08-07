@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Filename: logger.py
-Description: Creates a logger instance with the specified log level, format, and file to use in all other scripts.
+Description: Creates a logger instance with the specified log level, format, and file to use in all modules.
 Author: @alexdjulin
 Date: 2024-07-25
 """

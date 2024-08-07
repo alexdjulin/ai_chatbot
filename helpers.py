@@ -38,22 +38,21 @@ config = get_config()
 from logger import get_logger
 LOG = get_logger(Path(__file__).stem)
 # terminal colors, chatbot color dynamically loaded from config
-from terminal_colors import GREY, CLEAR, RESET
+from terminal_colors import MAGENTA, GREY, CLEAR, RESET
 from importlib import import_module
 terminal_colors_md = import_module('terminal_colors')
-AI_CLR = getattr(terminal_colors_md, config['ai_color'])
+AI_CLR = getattr(terminal_colors_md, config['ai_color'], MAGENTA)
 
 
 def format_string(prompt: str) -> str:
-    '''
-    Removes tabs, line breaks and extra spaces from strings. This is useful
+    ''' Removes tabs, line breaks and extra spaces from strings. This is useful
     when formatting prompts to send to chatGPT or to save to a csv file
 
     Args:
-        prompt (str): prompt to format
+        prompt (str): string to format
 
     Return:
-        (str): formatted prompt
+        (str): formatted string
     '''
 
     # remove tabs and line breaks
@@ -63,12 +62,14 @@ def format_string(prompt: str) -> str:
     while '  ' in prompt:
         prompt = prompt.replace('  ', ' ')
 
-    return prompt.strip()
+    # remove leading and trailing spaces
+    prompt = prompt.strip()
+
+    return prompt
 
 
 def write_to_csv(csvfile: str, *strings: list) -> bool:
-    '''
-    Adds chat messages to a csv file on a new row.
+    ''' Adds chat messages to a csv file on a new row.
 
     Args:
         csvfile (str): path to csv file
@@ -98,15 +99,14 @@ def write_to_csv(csvfile: str, *strings: list) -> bool:
     return True
 
 
-def load_prompt_messages(prompt_filepath: str = None) -> list:
-    '''
-    Loads messages from a jsonl file and returns them as a list of tuples.
+def load_prompt_messages(prompt_filepath: str = None) -> list[tuple[str, str]]:
+    ''' Loads messages from a jsonl file and returns them as a list of tuples.
 
     Args:
         prompt_filepath (str): path to jsonl file
 
     Return:
-        (list): list of tuples with role and content
+        (list[tuple[str, str]]): list of tuples with role and content
     '''
 
     messages = []
@@ -122,11 +122,8 @@ def load_prompt_messages(prompt_filepath: str = None) -> list:
     return messages
 
 
-def build_chain(system_messages: list = None) -> RunnableSequence:
-    '''Define the langchain chain to chat with the avatar.
-
-    Args:
-        system_messages: optional list of system messages added to the prompt
+def build_chain() -> RunnableSequence:
+    ''' Creates a langchain chain to chat with the avatar.
 
     Return:
         (RunnableSequence): chain instance
@@ -141,11 +138,6 @@ def build_chain(system_messages: list = None) -> RunnableSequence:
 
     # load messages
     messages = load_prompt_messages()
-
-    # add extra info as system messages
-    if system_messages:
-        for info in system_messages:
-            messages.append(("system", info))
 
     # add placeholders
     messages.append(("placeholder", "{chat_history}"))
@@ -165,12 +157,11 @@ def build_chain(system_messages: list = None) -> RunnableSequence:
     return chain
 
 
-def build_agent(system_messages: list[str] = None, placeholders: list[str] = None) -> AgentExecutor:
-    '''Defines a langchain agent with access to a list of tools to perform a task.
+def build_agent(placeholders: list[str] = None) -> AgentExecutor:
+    ''' Defines a langchain agent with access to a list of tools to perform a task.
 
     Args:
-        system_messages: optional list of system messages added to the prompt
-        placeholders: optional list of placeholder variables added to the prompt
+        placeholders (list): optional list of placeholder variables added to the prompt
 
     Return:
         (AgentExecutor): the agent instance
@@ -191,16 +182,12 @@ def build_agent(system_messages: list[str] = None, placeholders: list[str] = Non
     # create prompt
     messages = load_prompt_messages()
 
-    # add extra info as system messages
-    if system_messages:
-        for info in system_messages:
-            messages.append(("system", info))
-
     # add default placeholders
     messages.append(("placeholder", "{chat_history}"))
     messages.append(("human", "{input}"))
     messages.append(("placeholder", "{agent_scratchpad}"))
 
+    # add custom placeholders
     if placeholders:
         for placeholder in placeholders:
             messages.append(("placeholder", "{" + placeholder + "}"))
@@ -216,11 +203,14 @@ def build_agent(system_messages: list[str] = None, placeholders: list[str] = Non
 
 
 def generate_tts(text: str, language: str = None) -> None:
-    '''
-    Generates audio from text using edge_tts API and plays it
+    ''' Generates audio from text using edge_tts API and plays it
 
     Args:
         text (str): text to generate audio from
+        language (str): the language to use for the voice
+
+    Raises:
+        Exception: if error generating and playing audio
     '''
 
     voice = config['edgetts_voices'][language]
@@ -260,12 +250,11 @@ def generate_tts(text: str, language: str = None) -> None:
     os.remove(audio_file)
 
 
-def record_audio_message(exit_chat, input_method: str, language: str) -> str | None:
-    '''Record voice and return text transcription.
+def record_audio_message(exit_chat: dict, input_method: str, language: str) -> str | None:
+    ''' Record voice and return text transcription.
 
     Args:
-        exit_chat (dict): chat exit flag {'value': bool} passed by reference as mutable dicts so it 
-        can be modified on keypress and updated here.
+        exit_chat (dict): chat exit flag {'value': bool} passed by reference as mutable dicts so it can be modified on keypress and updated here.
         input_method (str): input method to use for transcription
         language (str): language to use for transcription
 

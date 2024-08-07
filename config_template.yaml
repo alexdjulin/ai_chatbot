@@ -13,14 +13,14 @@ user_color: B_I_CYAN  # the color of the user's text in the terminal (see termin
 
 # AVATAR SETTINGS
 ## Information about the AI bot
-chatbot_name: AI  # the name of the avatar as written to Terminal and chat history
+chatbot_name: Babette  # the name of the avatar as written to Terminal and chat history
 ai_color: B_I_MAGENTA  # the color of the avatar's text in the terminal (see terminal_colors module)
 
 # OPENAI SETTINGS
 ## We use OpenAI gpt model to generate an answer from a prompt
 openai_api_key:   # PASTE YOUR OPENAI API KEY HERE
 openai_model: gpt-4o-mini  # the Openai model to use
-temperature: 1  # the temperature of the model (higher values make the model more creative)
+temperature: 1.2  # the temperature of the model (higher values make the model more creative)
 prompt_filepath: prompt.jsonl  # local path to jsonl file with prompts to use for the chatbot
 tools_filepath: tools.py  # local path to python module tools.py defining the tools available to the langchain agent (if used)
 agent_verbose: true  # print agent activity logs

@@ -1,4 +1,4 @@
-edge-tts
+edge_tts
 pydub
 SpeechRecognition
 keyboard

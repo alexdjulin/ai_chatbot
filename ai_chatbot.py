@@ -28,12 +28,14 @@ LOG = get_logger(Path(__file__).stem)
 USER_NAME = config['user_name']
 CHATBOT_NAME = config['chatbot_name']
 
-# load terminal colors, user and chatbot colors are dynamically loaded from config
-from terminal_colors import GREY, RESET, CLEAR
+# load terminal colors
+from terminal_colors import CYAN, MAGENTA, GREY, RESET, CLEAR
+
+# load user and chatbot colors dynamically from config
 from importlib import import_module
 terminal_colors_md = import_module('terminal_colors')
-USER_CLR = getattr(terminal_colors_md, config['user_color'])
-AI_CLR = getattr(terminal_colors_md, config['ai_color'])
+USER_CLR = getattr(terminal_colors_md, config['user_color'], CYAN)
+AI_CLR = getattr(terminal_colors_md, config['ai_color'], MAGENTA)
 
 # setup csv file to store chat history
 CHAT_HISTORY_CSV = Path(__file__).parent / Path(config['chat_history'])
@@ -68,36 +70,35 @@ class AiChatbot:
         # langchain worker (chain or agent)
         self.worker = None
 
-    def create_worker_chain(self, system_messages: list[str] = None) -> None:
-        ''' Create langchain chain
+    def create_worker_chain(self) -> None:
+        ''' Create langchain chain '''
 
-        Args:
-            extra_info (list): optional list of info to add as system messages
-        '''
+        self.worker = helpers.build_chain()
 
-        self.worker = helpers.build_chain(system_messages)
-
-    def create_worker_agent(self, system_messages: list[str] = None, placeholders: list[str] = None) -> None:
+    def create_worker_agent(self, placeholders: list[str] = None) -> None:
         ''' Create langchain agent
 
         Args:
-            system_messages: optional list of system messages added to the prompt
-            placeholders: optional list of placeholder variables added to the prompt
+            placeholders (list[str]): optional list of placeholder variables added to the prompt
         '''
 
-        self.worker = helpers.build_agent(system_messages, placeholders)
+        self.worker = helpers.build_agent(placeholders)
 
     def chat_with_avatar(self, input_method: str = None, language: str = None) -> None:
         '''Entry point to chat with the avatar.
 
         Args:
+            input_method (str): overrides input method defined in config if passed to main as argument
             language (str): overrides chat language defined in config
+
+        Raises:
+            ValueError: if worker is not defined before starting chat
         '''
 
         if self.worker is None:
             LOG.error('self.worker is None. Call create_worker_chain or create_worker_agent before chat_with_avatar.')
             raise ValueError('Worker not defined. Please create a worker chain or agent before starting chat.')
-        
+
         # override input method if provided and checked if valid
         if input_method:
             self.input_method = input_method
@@ -174,7 +175,7 @@ class AiChatbot:
         print(f'\n{GREY}# CHAT ENDED #{GREY}')
 
     def on_space_pressed(self, e) -> None:
-        ''' When space is pressed, start a thread to record your voice and send message to chatGPT '''
+        ''' When space is pressed, start a thread to record your voice message '''
         if e.event_type == keyboard.KEY_DOWN and self.recording is False:
             self.chat_thread = threading.Thread(target=self.record_message)
             self.chat_thread.start()

@@ -157,6 +157,10 @@ cython_debug/
 # api-keys
 config.yaml
 
+# user folders
+csv/
+logs/
+
 # user files
 *.csv
 *.log

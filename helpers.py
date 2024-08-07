@@ -126,10 +126,7 @@ def build_chain(system_messages: list = None) -> RunnableSequence:
     '''Define the langchain chain to chat with the avatar.
 
     Args:
-        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
-
-    Args:
-        extra_info: optional list of info to add as system messages to the ones loaded from the prompt file
+        system_messages: optional list of system messages added to the prompt
 
     Return:
         (RunnableSequence): chain instance

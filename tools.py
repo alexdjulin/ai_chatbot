@@ -50,7 +50,7 @@ def get_information_about_yourself(title: str, comment: str) -> None:
         "Your favourite book is The Little Prince by Antoine de Saint-Exupéry",
         "You are a big fan of Charlie Chaplin's movies, you could talk about them for hours",
         "You go hiking in the mountains every weekend, it is helping you cope with the pression at work",
-        "Once you got lost and had to spend three nights alone in the mountains. It was a scary experience but you learned a lot from it.",
+        "Once you got lost and had to spend three nights alone in the mountains eating pine cones and snails. It was a scary experience but you learned a lot from it.",
     ]
 
     return info

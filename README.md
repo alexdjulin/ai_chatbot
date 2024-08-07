@@ -1,14 +1,14 @@
 # AI Chit-Chat
 *A flexible and low-latency chat interface to converse with an AI bot using text or speech.*
 
-![chat_preview.png](readme/chat_preview.png)
+<img src="readme/chat_preview.png" width=800px>
 
 ## Description
 This project is an upgrade of my older [Virtual AI Avatar](https://github.com/alexdjulin/virtual-ai-avatar) chatbot project, to integrate langchain methods, GPT4 models and reduce conversation's latency. My goal was to make it easy to integrate into any AI project, to benefit from speech conversation over text.
 
 ## Use-Cases
 Here are example of use-cases where I implemented this project.  
-[Virtual AI Avatar](https://github.com/alexdjulin/virtual-ai-avatar): A realistic AI-driven clone of myself, using my face and voice, to chat and interact with.
+[Movie-Advisor](https://github.com/alexdjulin/movie-advisor): Chat with an AI movie advisor and get recommendations based on your preferences.
 
 
 ## Install it
@@ -21,7 +21,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Rename `config_template.yaml` into `config.yaml` and add your [OpenAI API key](https://platform.openai.com/api-keys) to it. Edit other settings if desired.
+Rename `config_template.yaml` into `config.yaml` and add your [OpenAI API key](https://platform.openai.com/api-keys) to it. Edit other settings if needed.
 
 ## Run it
 Simply call `main.py` to run the program. Optional parameters can be passed as argument:

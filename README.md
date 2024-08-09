@@ -1,14 +1,14 @@
 # AI Chatbot
 *A flexible and low-latency chat interface to converse with a virtual chatbot using text or speech.*
 
-## Description
+# Description
 This project is an upgrade of my older [Virtual AI Avatar](https://github.com/alexdjulin/virtual-ai-avatar) chatbot project, to integrate langchain methods, GPT4 models and reduce conversation's latency. My goal was to make it easy to integrate as a submodule into any AI project, to benefit from speech conversation over text.
 
-## Use-Cases
+# Use-Cases
 Here are example of use-cases where I implemented this project.  
 [Movie-Advisor](https://github.com/alexdjulin/movie-advisor): Chat with an AI movie advisor and get recommendations based on your preferences.
 
-## Schematic
+# Schematic
 Here is an schematic of the project.  
 
 <img src="readme/schematic.png" width=1000 />
@@ -39,11 +39,13 @@ To run the project, you will need the following:
 
 An [OpenAI API-Key](https://platform.openai.com/api-keys). You can create one for free using your google account and use the starter credit to try it out. Once generated, paste your API key in `config.yaml`.
 
+Don't forget to never commit any credentials to your repositories! As a security, `config.yaml` was added to `.gitignore`.
+
 # Project Set-up
 
 In `config.yaml` you have access to a wide range of settings to configure your chatbot quickly without having to edit the code. See the comments for a quick description. You can create multiple config presets and specify which one to use as argument when calling main. See [Run Project](#RunProject) below.
 
-The `input_method` setting gives you 3 ways to interact with the chatbot:
+The `input_method` setting gives you 3 ways to interact with the chatbot. You can bypass this value and specify it as argument when calling `main.py`.
 - `voice` (default): Use a microphone to converse with the chatbot. The chatbot is always listening. Avoid this mode in a noisy environment.
 - `voice_k`: Use a microphone to converse with the chatbot. The chatbot is listening only when you press and hold the space bar, stops when you release it. Recommended in a noisy environment.
 - `text`: Use text messages only.

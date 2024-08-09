@@ -1,6 +1,10 @@
 # AI Chatbot
 *A flexible and low-latency chat interface to converse with a virtual chatbot using text or speech.*
 
+https://github.com/user-attachments/assets/cfaf71b1-4d58-46f5-9eae-c943f47828cc
+
+4K-version available on my [Youtube Channel](https://youtu.be/S7W004Mce9Q).
+
 # Description
 This project is an upgrade of my older [Virtual AI Avatar](https://github.com/alexdjulin/virtual-ai-avatar) chatbot project, to integrate langchain methods, GPT4 models and reduce conversation's latency. My goal was to make it easy to integrate as a submodule into any AI project, to benefit from speech conversation over text.
 

@@ -13,7 +13,7 @@ user_color: B_I_CYAN  # the color of the user's text in the terminal (see termin
 
 # AVATAR SETTINGS
 ## Information about the AI bot
-chatbot_name: Babette  # the name of the avatar as written to Terminal and chat history
+chatbot_name: Louise  # the name of the avatar as written to Terminal and chat history
 ai_color: B_I_MAGENTA  # the color of the avatar's text in the terminal (see terminal_colors module)
 
 # OPENAI SETTINGS
